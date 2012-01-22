@@ -1,0 +1,4 @@
+#!/bin/sh
+port-rm-old
+sudo port remove $(./macportsfoster)
+port-rm-distfiles

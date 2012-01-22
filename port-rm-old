@@ -1,0 +1,21 @@
+#!/usr/bin/ruby
+#
+# Uninstall MacPorts packages that have newer versions installed
+
+pkgs = {}
+IO.popen('port echo installed') do |f|
+	f.each do |line|
+		line.chomp!
+		pkg, vers = line.split
+		(pkgs[pkg] ||= []) << vers
+	end
+end
+
+# Latest version is the last one
+remove = []
+pkgs.each do |pkg, vs|
+	vs.pop
+	remove.concat(vs.map { |v| "%s%s" % [pkg, v] })
+end
+
+exec('sudo', 'port', 'uninstall', *remove)

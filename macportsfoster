@@ -1,0 +1,128 @@
+#!/usr/bin/ruby
+#
+# Print a list of MacPorts orphans
+
+require 'pathname'
+require 'pp'
+require 'set'
+
+require 'rubygems'
+require 'highline/system_extensions'
+
+class DepGraph
+	def initialize
+		@dep = {}
+		@rev = {}
+	end
+	
+	def add_dep(from, to)
+		(@dep[from] ||= Set.new) << to
+		(@rev[to] ||= Set.new) << from
+	end
+	def add_pkg(pkg)
+		@rev[pkg] ||= Set.new
+	end
+	
+	def deps(pkg); @dep[pkg] || Set.new; end
+	def revs(pkg); @rev[pkg] || Set.new; end
+	def all_dependents; Set[*@rev.keys]; end
+end
+
+class MacPorts
+	attr_reader :prefix
+	
+	def initialize(prefix = nil)
+		@prefix = Pathname.new(prefix || self.class.get_prefix)
+	end
+	
+	def self.get_prefix
+		paths = ENV['PATH'].split(':').map { |d| Pathname.new(d) }
+		bin = paths.find { |d| d.+('port').executable? } \
+			or raise 'No port executable found'
+		md = bin.+('port').realpath.to_s.match(%r{^(.*)/bin/port$}) \
+			or raise 'Port executable not in prefix'
+		return md[1]
+	end
+	
+	def bin; @prefix + 'bin' + 'port'; end
+	
+	def popen(*args)
+		r, w = IO.pipe
+		begin
+			fork do
+				r.close
+				STDOUT.reopen(w)
+				exec(*([bin] + args))
+			end
+			w.close
+			return yield r
+		ensure
+			r.close
+		end
+	end
+
+	def depgraph
+		dg = DepGraph.new
+		popen('dependents', 'active') do |io|
+			io.each_line do |line|
+				case line
+					when /^(\S+) depends on (\S+)$/: dg.add_dep($1, $2)
+					when /^(\S+) has no dependents\.$/: dg.add_pkg($1)
+					else raise "Unknown dependency description '#{line}'"
+				end
+			end
+		end
+		return dg
+	end
+	
+	def requested
+		req = Set.new
+		popen('echo', 'requested') do |io|
+			io.each_line { |line| req << /^(\S+)/.match(line)[1] }
+		end
+		return req
+	end
+end
+
+class Foster
+	def initialize(dg)
+		@dg = dg
+		@pkgs = dg.all_dependents
+		@orphans = [] # ordered so that they can be removed first-to-last
+	end
+	
+	def revs(p); @dg.revs(p) & @pkgs; end
+	def deps(p); @dg.deps(p) & @pkgs; end
+	def leaves; @pkgs.select { |p| revs(p).empty? }; end
+	
+	def remove!(pkg); @pkgs.delete(pkg); end
+	def orphan!(pkg); @orphans << pkg; remove!(pkg); end
+	
+	def keep!(pkg) # keep pkg and its dependents
+		return unless @pkgs.include?(pkg)
+		@pkgs.delete(pkg)
+		deps(pkg).each { |p| keep!(p) }
+	end
+	
+	def find_orphans
+		loop do
+			ls = leaves
+			break if ls.empty?
+			ls.each { |l| orphan!(l) }			
+		end
+		return @orphans
+	end
+end
+
+mp = MacPorts.new
+o = Foster.new(mp.depgraph)
+mp.requested.each { |k| o.keep!(k) }
+o.find_orphans.each { |p| puts p }
+
+# TODO
+# - remove orphans
+# - ask about orphans (yes/no; skip; prune; info?; undo?)
+# - add/remove from keeper list
+# - opts: mark-only, force, show-*
+# - remove old-inst
+# - remove old-distfiles

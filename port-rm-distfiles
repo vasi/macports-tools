@@ -1,0 +1,25 @@
+#!/usr/bin/ruby
+#
+# Remove obsolete distfiles from MacPorts
+
+require 'set'
+require 'find'
+
+distfiles = Set.new
+IO.popen('port distfiles installed') do |f|
+	f.each do |line|
+		line.chomp!
+		md = /^\[.*\] (.*)/.match(line) or next
+		distfiles << md[1]
+	end
+end
+
+remove = []
+Find.find("/opt/local/var/macports/distfiles") do |path| # FIXME: Don't assume /opt
+	next if !File.file?(path) || %r{/\.turd}.match(path) ||
+		distfiles.include?(path)
+	puts path
+	remove << path
+end
+
+exec('sudo', 'rm', '-v', *remove)
