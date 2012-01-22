@@ -22,4 +22,4 @@ Find.find("/opt/local/var/macports/distfiles") do |path| # FIXME: Don't assume /
 	remove << path
 end
 
-exec('sudo', 'rm', '-v', *remove)
+exec('sudo', 'rm', '-v', *remove) unless remove.empty?

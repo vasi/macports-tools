@@ -18,4 +18,4 @@ pkgs.each do |pkg, vs|
 	remove.concat(vs.map { |v| "%s%s" % [pkg, v] })
 end
 
-exec('sudo', 'port', 'uninstall', *remove)
+exec('sudo', 'port', 'uninstall', *remove) unless remove.empty?

@@ -1,4 +1,13 @@
-#!/bin/sh
+#!/bin/sh -e
 port-rm-old
-sudo port remove $(./macportsfoster)
+
+echo
+
+orphans=`./macportsfoster`
+if [ -n "$orphans" ]; then
+	sudo port deactivate $orphans
+fi
+
+echo
+
 port-rm-distfiles
