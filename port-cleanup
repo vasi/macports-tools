@@ -3,7 +3,7 @@ port-rm-old
 
 echo
 
-orphans=`./macportsfoster`
+orphans=`macportsfoster`
 if [ -n "$orphans" ]; then
 	sudo port deactivate $orphans
 fi
