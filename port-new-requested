@@ -1,0 +1,18 @@
+#!/usr/bin/ruby
+
+def readreq(io)
+	io = open(io) unless io.respond_to?(:readlines)
+	return io.readlines.map { |x| x.sub(/^(\S+)[^+]*/, '\1').strip }.sort
+end
+
+prevreqfile = ENV['PORTREQUESTED'] || File.join(ENV['HOME'], '.portrequested')
+
+prev = readreq(prevreqfile)
+cur = readreq(IO.popen('port echo requested'))
+
+add = cur - prev
+sub = prev - cur
+all = add.map { |x| [x, :+] } + sub.map { |x| [x, :-] }
+all.sort.each do |x,o|
+	puts o.to_s + x
+end
