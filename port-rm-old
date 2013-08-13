@@ -2,6 +2,15 @@
 #
 # Uninstall MacPorts packages that have newer versions installed
 
+require 'optparse'
+
+simulate = false
+OptionParser.new do |opts|
+	opts.on("-n", "--simulate", "Just print the packages to remove") do
+		simulate = true
+	end
+end.parse!
+
 pkgs = {}
 IO.popen('port echo installed') do |f|
 	f.each do |line|
@@ -10,12 +19,19 @@ IO.popen('port echo installed') do |f|
 		(pkgs[pkg] ||= []) << vers
 	end
 end
+pkgs.reject! { |p,vs| vs.size == 1 }
 
 # Latest version is the last one
-remove = []
-pkgs.each do |pkg, vs|
-	vs.pop
-	remove.concat(vs.map { |v| "%s%s" % [pkg, v] })
-end
+if simulate
+	pkgs.keys.sort.each do |p|
+		puts "%s: %s" % [p, pkgs[p].join(', ')]
+	end
+else
+	remove = []
+	pkgs.each do |pkg, vs|
+		vs.pop
+		remove.concat(vs.map { |v| "%s%s" % [pkg, v] })
+	end
 
-exec('sudo', 'port', 'uninstall', *remove) unless remove.empty?
+	exec('sudo', 'port', 'uninstall', *remove) unless remove.empty?
+end
