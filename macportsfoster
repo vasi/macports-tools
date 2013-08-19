@@ -6,9 +6,6 @@ require 'pathname'
 require 'pp'
 require 'set'
 
-require 'rubygems'
-require 'highline/system_extensions'
-
 class DepGraph
 	def initialize
 		@dep = {}
@@ -52,7 +49,7 @@ class MacPorts
 			fork do
 				r.close
 				STDOUT.reopen(w)
-				exec(*([bin] + args))
+				exec(*([bin.to_s] + args))
 			end
 			w.close
 			return yield r
@@ -66,8 +63,8 @@ class MacPorts
 		popen('dependents', 'active') do |io|
 			io.each_line do |line|
 				case line
-					when /^(\S+) depends on (\S+)$/: dg.add_dep($1, $2)
-					when /^(\S+) has no dependents\.$/: dg.add_pkg($1)
+					when /^(\S+) depends on (\S+)$/ then dg.add_dep($1, $2)
+					when /^(\S+) has no dependents\.$/ then dg.add_pkg($1)
 					else raise "Unknown dependency description '#{line}'"
 				end
 			end
