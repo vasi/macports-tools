@@ -5,17 +5,23 @@
 require 'set'
 require 'find'
 
+distdir = nil
 distfiles = Set.new
 IO.popen('port distfiles installed') do |f|
 	f.each do |line|
 		line.chomp!
 		md = /^\[.*\] (.*)/.match(line) or next
-		distfiles << md[1]
+		file = md[1]
+		distfiles << file
+		
+		if !distdir && md = %r{^(.*/macports/distfiles)}.match(file)
+			distdir = md[1]
+		end
 	end
 end
 
 remove = []
-Find.find("/opt/local/var/macports/distfiles") do |path| # FIXME: Don't assume /opt
+Find.find(distdir) do |path| # FIXME: Don't assume /opt
 	next if !File.file?(path) || %r{/\.turd}.match(path) ||
 		distfiles.include?(path)
 	puts path
