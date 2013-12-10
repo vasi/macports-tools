@@ -14,8 +14,9 @@ end.parse!
 pkgs = {}
 IO.popen('port echo installed') do |f|
 	f.each do |line|
-		line.chomp!
-		pkg, vers = line.split
+		md = /^(\S+)\s+([^\s+]+)(\+\S+)?/.match(line) or next
+		name, vers, var = *md.captures
+		pkg = name + (var || '')
 		(pkgs[pkg] ||= []) << vers
 	end
 end
