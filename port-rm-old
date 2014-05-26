@@ -15,24 +15,23 @@ pkgs = {}
 IO.popen('port echo installed') do |f|
 	f.each do |line|
 		md = /^(\S+)\s+([^\s+]+)(\+\S+)?/.match(line) or next
-		name, vers, var = *md.captures
+    name, vers, var = *md.captures
 		pkg = name + (var || '')
-		(pkgs[pkg] ||= []) << vers
+    fullname = name + vers + (var || '')
+		(pkgs[pkg] ||= []) << { :vers => vers, :fullname => fullname }
 	end
 end
 pkgs.reject! { |p,vs| vs.size == 1 }
-
 # Latest version is the last one
+pkgs.each { |pkg, vs| vs.pop }
+
 if simulate
 	pkgs.keys.sort.each do |p|
-		puts "%s: %s" % [p, pkgs[p].join(', ')]
+		puts "%s: %s" % [p, pkgs[p].map { |v| v[:vers] }.join(', ')]
 	end
 else
 	remove = []
-	pkgs.each do |pkg, vs|
-		vs.pop
-		remove.concat(vs.map { |v| "%s%s" % [pkg, v] })
-	end
+	pkgs.each { |pkg, vs| remove.concat(vs.map { |v| v[:fullname] }) }
 
-	exec('sudo', 'port', 'uninstall', *remove) unless remove.empty?
+  exec('sudo', 'port', 'uninstall', *remove) unless remove.empty?
 end
